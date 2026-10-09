@@ -1,0 +1,54 @@
+/* Globally hide the native edit buttons on messages */
+.mes_buttons .edit_mes,
+.mes_buttons [title*="Edit"],
+.mes_buttons [aria-label*="Edit"] {
+    display: none !important;
+}
+
+/* Active editing styling - Mobile friendly padding/sizing */
+.mes_text.inline-editing {
+    outline: 2px dashed rgba(255, 255, 255, 0.5);
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 6px;
+    padding: 10px;
+    margin: 5px 0; /* Add a little margin for the toolbars */
+    cursor: text !important;
+    transition: all 0.2s ease-in-out;
+    -webkit-user-select: text;
+    user-select: text;
+    min-height: 2.5em; 
+}
+
+/* Toolbar Container */
+.inline-edit-toolbar {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 4px 0;
+    width: 100%;
+}
+
+/* Save / Cancel Buttons */
+.inline-edit-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 12px;
+    background-color: var(--SmartThemeBlurTintColor, rgba(0, 0, 0, 0.6));
+    border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.3));
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.85em;
+    font-family: inherit;
+    color: var(--SmartThemeBodyColor, #fff);
+    transition: background-color 0.15s ease;
+}
+
+.inline-edit-btn:hover {
+    background-color: var(--SmartThemeQuoteColor, rgba(255, 255, 255, 0.2));
+}
+
+.inline-edit-btn i {
+    margin-right: 5px;
+    font-style: normal;
+}

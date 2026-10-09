@@ -1,0 +1,10 @@
+{
+    "id": "inline-editor",
+    "name": "inline-editor",
+    "display_name": "Inline WYSIWYG Message Editor",
+    "description": "Edit messages directly by clicking on them. Hides native edit buttons and settings.",
+    "version": "1.0.1",
+    "author": "William",
+    "js": "index.js",
+    "css": "style.css"
+}
