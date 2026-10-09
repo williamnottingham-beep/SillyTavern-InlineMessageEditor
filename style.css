@@ -35,49 +35,38 @@ label[for="click_to_edit"].sme-hidden-setting {
     overflow-anchor: none;
 }
 
-/* The controls live in an absolute layer on the message card, outside .mes_text.
-   The layer and its children never take up layout space. */
-#chat .mes.sme-editing .sme-controls-layer {
-    position: absolute;
-    inset: 0;
-    z-index: 40;
-    overflow: visible;
-    pointer-events: none;
-}
-
-#chat .sme-edit-toolbar {
-    position: absolute;
-    z-index: 30;
+/* Toolbars sit in normal message flow directly above and below .mes_text.
+   This keeps controls aligned with the text column and prevents them covering content. */
+#chat .mes .sme-edit-toolbar {
+    position: relative;
+    z-index: 2;
     display: flex;
     align-items: center;
     justify-content: space-between;
     flex-wrap: wrap;
     gap: 8px;
-    width: max-content;
-    max-width: calc(100% - 8px);
+    width: 100%;
+    max-width: 100%;
     box-sizing: border-box;
-    padding: 6px 8px;
+    padding: 5px 8px;
     margin: 0;
     border: 1px solid color-mix(in srgb, var(--SmartThemeBorderColor, #777) 42%, transparent);
-    border-radius: 10px;
+    border-radius: 9px;
     background: color-mix(in srgb, var(--SmartThemeBlurTintColor, #20232c) 96%, transparent);
-    box-shadow: 0 4px 14px color-mix(in srgb, #000 22%, transparent);
-    -webkit-backdrop-filter: blur(12px);
-    backdrop-filter: blur(12px);
+    box-shadow: 0 3px 10px color-mix(in srgb, #000 14%, transparent);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
     color: var(--SmartThemeBodyColor, inherit);
-    font-size: 0.84rem;
+    font-size: 0.82rem;
     line-height: 1.2;
-    pointer-events: none;
 }
 
-#chat .sme-edit-toolbar-top {
-    top: calc(var(--sme-toolbar-top, 0px) + 4px);
-    right: 4px;
+#chat .mes .sme-edit-toolbar-top {
+    margin: 0 0 0.55em;
 }
 
-#chat .sme-edit-toolbar-bottom {
-    bottom: calc(var(--sme-toolbar-bottom, 0px) + 4px);
-    left: 4px;
+#chat .mes .sme-edit-toolbar-bottom {
+    margin: 0.55em 0 0;
 }
 
 #chat .sme-edit-toolbar .sme-edit-actions,
@@ -219,10 +208,10 @@ label[for="click_to_edit"].sme-hidden-setting {
 }
 
 @media (max-width: 600px) {
-    #chat .sme-edit-toolbar {
+    #chat .mes .sme-edit-toolbar {
         gap: 4px;
         padding: 5px;
-        max-width: calc(100% - 8px);
+        max-width: 100%;
     }
 
     #chat .sme-editing-label,

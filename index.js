@@ -57,36 +57,25 @@
         return index >= 0 ? String(context?.chat?.[index]?.mes ?? '') : '';
     }
 
-    function ensureControlsLayer(messageElement) {
-        let layer = Array.from(messageElement.children).find(child => child.classList?.contains('sme-controls-layer'));
-        if (!layer) {
-            layer = document.createElement('div');
-            layer.className = 'sme-controls-layer';
-            layer.setAttribute('aria-label', 'Message editing controls');
-            messageElement.append(layer);
-        }
-        return layer;
-    }
-
-    function moveToolbarToLayer(messageElement, layer, position) {
-        const selector = `.sme-edit-toolbar-${position}`;
-        let toolbar = layer.querySelector(selector);
-        if (!toolbar) {
-            toolbar = messageElement.querySelector(selector) || makeToolbar(position);
-            layer.append(toolbar);
-        }
-        return toolbar;
-    }
-
-    function positionToolbarLayer(messageElement, messageText) {
-        const layer = ensureControlsLayer(messageElement);
+    function placeToolbars(messageElement, messageText) {
         if (!messageElement.isConnected || !messageText?.isConnected) return;
-        const messageRect = messageElement.getBoundingClientRect();
-        const textRect = messageText.getBoundingClientRect();
-        const topOffset = Math.max(0, textRect.top - messageRect.top);
-        const bottomOffset = Math.max(0, messageRect.bottom - textRect.bottom);
-        layer.style.setProperty('--sme-toolbar-top', `${topOffset}px`);
-        layer.style.setProperty('--sme-toolbar-bottom', `${bottomOffset}px`);
+        const host = messageText.parentElement;
+        if (!host) return;
+
+        // Keep the controls in normal layout flow, immediately before and after the
+        // actual message text. Floating overlays covered text and could be misaligned
+        // by reasoning blocks, theme margins, or custom message layouts.
+        let topToolbar = messageElement.querySelector('.sme-edit-toolbar-top');
+        if (!topToolbar) topToolbar = makeToolbar('top');
+        if (topToolbar.parentElement !== host || topToolbar.nextElementSibling !== messageText) {
+            host.insertBefore(topToolbar, messageText);
+        }
+
+        let bottomToolbar = messageElement.querySelector('.sme-edit-toolbar-bottom');
+        if (!bottomToolbar) bottomToolbar = makeToolbar('bottom');
+        if (bottomToolbar.parentElement !== host || messageText.nextElementSibling !== bottomToolbar) {
+            messageText.insertAdjacentElement('afterend', bottomToolbar);
+        }
     }
 
     function hideClickToEditSetting() {
@@ -243,8 +232,6 @@
         if (!editor || !messageText) {
             messageElement.classList.remove('sme-editing', 'sme-source-mode');
             messageElement.querySelectorAll('.sme-controls-layer, .sme-edit-toolbar, .sme-wysiwyg-view').forEach(element => element.remove());
-            messageElement.style.removeProperty('--sme-toolbar-top');
-            messageElement.style.removeProperty('--sme-toolbar-bottom');
             return;
         }
 
@@ -261,11 +248,8 @@
             sessions.set(messageElement, session);
         }
 
-        // Keep action bars in a separate absolute-positioned layer on the message card,
-        // not inside .mes_text. This means the controls never contribute to message height.
-        const controlsLayer = ensureControlsLayer(messageElement);
-        moveToolbarToLayer(messageElement, controlsLayer, 'top');
-        moveToolbarToLayer(messageElement, controlsLayer, 'bottom');
+        // Place toolbars around .mes_text in normal flow so they never cover message text.
+        placeToolbars(messageElement, messageText);
 
         let view = messageText.querySelector('.sme-wysiwyg-view');
         if (!view) {
@@ -284,7 +268,6 @@
             view.addEventListener('input', () => {
                 session.viewDirty = true;
                 view.classList.add('sme-has-changes');
-                requestAnimationFrame(() => positionToolbarLayer(messageElement, messageText));
             });
             view.addEventListener('keydown', onEditorKeydown);
         }
@@ -304,8 +287,6 @@
         view.classList.toggle('sme-view-hidden', session.sourceMode);
         messageElement.classList.toggle('sme-source-mode', session.sourceMode);
         updateSourceButtonLabels(messageElement, session.sourceMode);
-        positionToolbarLayer(messageElement, messageText);
-
         if (!session.initializedView && session.initialHtml === null) {
             session.initializedView = true;
             const raw = editor.value;
@@ -423,61 +404,67 @@
         selection?.addRange(range);
     }
 
-    function getScrollSnapshot() {
-        const chat = document.querySelector(CHAT_SELECTOR);
-        const root = document.scrollingElement || document.documentElement;
+    function findScrollContainer(element) {
+        let node = element?.parentElement;
+        while (node && node !== document.body && node !== document.documentElement) {
+            const style = getComputedStyle(node);
+            if (/(auto|scroll|overlay)/.test(style.overflowY) && node.scrollHeight > node.clientHeight + 1) {
+                return node;
+            }
+            node = node.parentElement;
+        }
+        return document.scrollingElement || document.documentElement;
+    }
+
+    function captureVisualAnchor(element) {
+        if (!element?.isConnected) return null;
         return {
-            chat,
-            chatScrollTop: chat?.scrollTop ?? 0,
-            chatScrollLeft: chat?.scrollLeft ?? 0,
-            root,
-            rootScrollTop: root?.scrollTop ?? window.scrollY,
-            rootScrollLeft: root?.scrollLeft ?? window.scrollX,
-            windowX: window.scrollX,
-            windowY: window.scrollY,
+            element,
+            top: element.getBoundingClientRect().top,
+            container: findScrollContainer(element),
         };
     }
 
-    function restoreScroll(snapshot) {
-        if (!snapshot) return;
-        const targets = [document.documentElement, document.body, snapshot.chat].filter(Boolean);
-        const oldBehaviors = targets.map(element => element.style.scrollBehavior);
-        targets.forEach(element => { element.style.scrollBehavior = 'auto'; });
+    function restoreVisualAnchor(anchor) {
+        if (!anchor?.element?.isConnected) return;
+        const currentTop = anchor.element.getBoundingClientRect().top;
+        const delta = currentTop - anchor.top;
+        if (!Number.isFinite(delta) || Math.abs(delta) < 0.5) return;
 
-        // Assign scroll positions directly. window.scrollTo can animate on themes that
-        // apply scroll-behavior:smooth, which looks like the chat jumps after a click.
-        if (snapshot.root) {
-            snapshot.root.scrollLeft = snapshot.rootScrollLeft;
-            snapshot.root.scrollTop = snapshot.rootScrollTop;
-        }
-        if (snapshot.chat) {
-            snapshot.chat.scrollLeft = snapshot.chatScrollLeft;
-            snapshot.chat.scrollTop = snapshot.chatScrollTop;
-        }
-        document.documentElement.scrollLeft = snapshot.windowX;
-        document.documentElement.scrollTop = snapshot.windowY;
-        if (document.body) {
-            document.body.scrollLeft = snapshot.windowX;
-            document.body.scrollTop = snapshot.windowY;
-        }
-        window.scrollTo(snapshot.windowX, snapshot.windowY);
+        const container = anchor.container;
+        if (!container) return;
+        // Correct only the scrolling ancestor that owns this message. Avoid separately
+        // rewriting documentElement, body, window, and #chat, which caused tiny jumps.
+        const oldBehavior = container.style.scrollBehavior;
+        container.style.scrollBehavior = 'auto';
+        container.scrollTop += delta;
+        container.style.scrollBehavior = oldBehavior;
+    }
 
+    function restoreVisualAnchorAfterLayout(anchor) {
         requestAnimationFrame(() => {
-            if (snapshot.root) {
-                snapshot.root.scrollLeft = snapshot.rootScrollLeft;
-                snapshot.root.scrollTop = snapshot.rootScrollTop;
+            restoreVisualAnchor(anchor);
+            requestAnimationFrame(() => restoreVisualAnchor(anchor));
+        });
+    }
+
+    function waitForEditorClosed(messageElement, timeoutMs = 1800) {
+        return new Promise(resolve => {
+            if (!messageElement.querySelector(EDITOR_SELECTOR)) return resolve();
+            let finished = false;
+            let timeoutId;
+            const observer = new MutationObserver(() => {
+                if (!messageElement.querySelector(EDITOR_SELECTOR)) finish();
+            });
+            function finish() {
+                if (finished) return;
+                finished = true;
+                observer.disconnect();
+                clearTimeout(timeoutId);
+                resolve();
             }
-            if (snapshot.chat) {
-                snapshot.chat.scrollLeft = snapshot.chatScrollLeft;
-                snapshot.chat.scrollTop = snapshot.chatScrollTop;
-            }
-            document.documentElement.scrollLeft = snapshot.windowX;
-            document.documentElement.scrollTop = snapshot.windowY;
-            if (document.body) {
-                document.body.scrollLeft = snapshot.windowX;
-                document.body.scrollTop = snapshot.windowY;
-            }
-            targets.forEach((element, index) => { element.style.scrollBehavior = oldBehaviors[index]; });
+            observer.observe(messageElement, { childList: true, subtree: true });
+            timeoutId = setTimeout(finish, timeoutMs);
         });
     }
 
@@ -509,17 +496,19 @@
         if (!editButton) return;
 
         const messageText = messageElement.querySelector('.mes_text');
-        const snapshot = getScrollSnapshot();
+        if (!messageText) return;
+        const visualAnchor = captureVisualAnchor(messageElement);
         const session = {
-            initialHtml: messageText?.innerHTML ?? '',
+            initialHtml: messageText.innerHTML,
             clickTextOffset: textOffsetFromClick(messageElement, event),
             viewDirty: false,
             sourceMode: false,
             initializedView: false,
+            visualAnchor,
         };
         sessions.set(messageElement, session);
 
-        // Preserve ST's own edit/save flow, including Regex, swipe data, events and persistence.
+        // Use SillyTavern's own edit button so the core save pipeline and Regex remain intact.
         editButton.click();
         const editor = await waitForEditor(messageElement);
         if (!editor) return;
@@ -530,10 +519,7 @@
             if (!view?.isConnected) return;
             view.focus({ preventScroll: true });
             setCaretAtTextOffset(view, session.clickTextOffset);
-            restoreScroll(snapshot);
-            // Core edit handlers and third-party themes may adjust scrolling one frame
-            // after the textarea is inserted. Reapply once after that layout settles.
-            requestAnimationFrame(() => restoreScroll(snapshot));
+            restoreVisualAnchorAfterLayout(visualAnchor);
         });
     }
 
@@ -719,7 +705,9 @@
         }
 
         const coreSelector = action === 'save' ? '.mes_edit_done' : '.mes_edit_cancel';
+        const anchor = captureVisualAnchor(message);
         message.querySelector(coreSelector)?.click();
+        void waitForEditorClosed(message).then(() => restoreVisualAnchorAfterLayout(anchor));
     }
 
     function onEditorKeydown(event) {

@@ -2,7 +2,7 @@
 
 A SillyTavern UI extension that provides formatted in-place editing while preserving SillyTavern's native message-edit/save pipeline.
 
-Version: **1.1.4**
+Version: **1.1.5**
 
 ## Features
 
@@ -10,13 +10,13 @@ Version: **1.1.4**
 - Starts in a formatted `contenteditable` view based on SillyTavern's already-rendered message HTML, retaining visible Markdown styles, blockquotes, colored quote text and code formatting while editing.
 - **Show source** toggles to the native source textarea so Markdown markers such as `**bold**`, `*italic*`, `> quotes`, and code fences can be viewed and edited.
 - Save and Cancel controls appear both above and below the editor.
-- The top and bottom control bars live in a detached absolute-positioned overlay on the message card, outside the message-text flow. They do not add layout height or shift the surrounding chat.
+- Top and bottom control bars are placed in normal layout flow directly before and after the message text. They align to the text column and never overlap the rendered text.
 - `Ctrl+Enter` / `Cmd+Enter` saves. `Escape` cancels.
 - Hides the stock edit icon and the Click to edit setting.
 - Click-to-edit activates only within the actual `.mes_text` message body. Reasoning/thinking cards, details/summary elements, metadata, avatars, controls, and message-card padding never launch editing.
 - Native SillyTavern save handling is retained for Regex processing, swipe synchronization, message events, and chat persistence.
 - Keeps the formatted editor in normal document flow and inherits the current theme’s font, alignment, line height, and message formatting, avoiding fixed-height clipping or layout distortions.
-- Restores chat and document scroll positions immediately and after the first layout frame, preventing native focus or smooth-scroll styles from nudging the chat when editing starts.
+- Preserves the visible position of the message card by correcting only its nearest scrollable container after native edit/focus actions, without independently rewriting document, body, window, and chat scroll positions.
 
 ## Install manually
 
