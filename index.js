@@ -40,30 +40,58 @@ function setupTurndown() {
     turndownService.remove(['button', 'script', 'style']);
 }
 
-async function saveMessage(mesId, newMarkdown) {
+// Prevents ST's scroll jumping when UI elements are added/removed
+function executeWithScrollFreeze(action) {
+    const chatContainer = document.getElementById('chat');
+    const html = document.documentElement;
+    const body = document.body;
+    
+    // 1. Snapshot exact scroll positions
+    const scrollY = window.scrollY || html.scrollTop || body.scrollTop;
+    const chatScrollY = chatContainer ? chatContainer.scrollTop : 0;
+    
+    // 2. Perform the DOM changes
+    action();
+    
+    // 3. Force scroll back to where it was
+    const forceScroll = () => {
+        window.scrollTo(window.scrollX, scrollY);
+        if (chatContainer) chatContainer.scrollTop = chatScrollY;
+    };
+    
+    // Lock it instantly, and pulse a few times to defeat ST's native auto-scroll observer
+    forceScroll();
+    setTimeout(forceScroll, 10);
+    setTimeout(forceScroll, 50);
+    setTimeout(forceScroll, 150);
+}
+
+function saveMessage(mesId, newMarkdown) {
     const context = getContext();
     const chat = context.chat;
     const idNum = parseInt(mesId, 10);
     
     if (isNaN(idNum) || !chat[idNum]) return;
+    
+    // IF THE TEXT DIDN'T CHANGE, DO NOTHING (Saves processing & prevents jump)
+    if (chat[idNum].mes === newMarkdown) return; 
 
     chat[idNum].mes = newMarkdown;
     
-    if (typeof context.saveChat === 'function') {
-        await context.saveChat();
-    } else if (typeof context.saveChatDebounced === 'function') {
-        context.saveChatDebounced();
-    }
-    
     if (typeof window.updateMessageBlock === 'function') {
         window.updateMessageBlock(idNum, chat[idNum]);
+    }
+
+    if (typeof context.saveChat === 'function') {
+        context.saveChat();
+    } else if (typeof context.saveChatDebounced === 'function') {
+        context.saveChatDebounced();
     }
 }
 
 jQuery(async () => {
     await initTurndown();
 
-    // Hide native "Click to Edit" setting
     setTimeout(() => {
         const labels = document.querySelectorAll('.checkbox_label');
         labels.forEach(label => {
@@ -76,7 +104,6 @@ jQuery(async () => {
     const chatContainer = document.getElementById('chat');
     if (!chatContainer) return;
 
-    // Helper to generate the Toolbars
     function createToolbar(onSave, onCancel) {
         const bar = document.createElement('div');
         bar.className = 'inline-edit-toolbar';
@@ -84,7 +111,6 @@ jQuery(async () => {
         const cancelBtn = document.createElement('button');
         cancelBtn.className = 'inline-edit-btn';
         cancelBtn.innerHTML = '<i>❌</i> Cancel';
-        // Prevent mousedown from blurring the text editor before click registers
         cancelBtn.onmousedown = (e) => { e.preventDefault(); };
         cancelBtn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); onCancel(); };
 
@@ -99,7 +125,6 @@ jQuery(async () => {
         return bar;
     }
 
-    // Use "capture" phase to stop SillyTavern's native edit behavior
     chatContainer.addEventListener('click', (e) => {
         if (e.target.closest('.inline-edit-toolbar')) return;
 
@@ -125,15 +150,14 @@ jQuery(async () => {
         if (!mesBlock) return;
         const mesId = mesBlock.getAttribute('mesid');
 
-        // Enter inline edit mode
-        mesText.setAttribute('contenteditable', 'true');
-        mesText.setAttribute('inputmode', 'text'); 
-        mesText.classList.add('inline-editing');
-        mesBlock.classList.add('inline-editing-active');
+        executeWithScrollFreeze(() => {
+            mesText.setAttribute('contenteditable', 'true');
+            mesText.setAttribute('inputmode', 'text'); 
+            mesText.classList.add('inline-editing');
+            mesBlock.classList.add('inline-editing-active');
+            mesText.focus();
+        });
         
-        mesText.focus();
-        
-        // Place cursor precisely where tapped
         let range;
         if (document.caretRangeFromPoint) {
             range = document.caretRangeFromPoint(e.clientX, e.clientY);
@@ -171,39 +195,47 @@ jQuery(async () => {
             if (activeEditor === mesText) activeEditor = null;
         };
 
-        const saveChanges = async () => {
+        const saveChanges = () => {
             if (isSaving || isCanceling) return;
             isSaving = true;
             const htmlContent = mesText.innerHTML;
-            cleanup();
 
             let newMarkdown = turndownService.turndown(htmlContent);
             newMarkdown = newMarkdown.replace(/\\([*_+~.])/g, '$1');
-            await saveMessage(mesId, newMarkdown);
+
+            // Freeze the screen, perform the DOM removal, and save text
+            executeWithScrollFreeze(() => {
+                cleanup();
+                saveMessage(mesId, newMarkdown);
+            });
         };
 
         const cancelChanges = () => {
             if (isSaving || isCanceling) return;
             isCanceling = true;
-            mesText.innerHTML = originalHtml; 
-            cleanup();
-            mesText.blur();
+            
+            // Freeze screen, revert text, and perform DOM removal
+            executeWithScrollFreeze(() => {
+                mesText.innerHTML = originalHtml; 
+                cleanup();
+                mesText.blur();
+            });
         };
 
-        // Create and insert top & bottom toolbars
         const topToolbar = createToolbar(saveChanges, cancelChanges);
         const bottomToolbar = createToolbar(saveChanges, cancelChanges);
         
-        mesText.parentNode.insertBefore(topToolbar, mesText);
-        if (mesText.nextSibling) {
-            mesText.parentNode.insertBefore(bottomToolbar, mesText.nextSibling);
-        } else {
-            mesText.parentNode.appendChild(bottomToolbar);
-        }
+        executeWithScrollFreeze(() => {
+            mesText.parentNode.insertBefore(topToolbar, mesText);
+            if (mesText.nextSibling) {
+                mesText.parentNode.insertBefore(bottomToolbar, mesText.nextSibling);
+            } else {
+                mesText.parentNode.appendChild(bottomToolbar);
+            }
+        });
 
-        const onBlur = async () => {
+        const onBlur = () => {
             setTimeout(() => {
-                // If they click on the page background (outside the message block), auto-save
                 if (activeEditor === mesText && !mesBlock.contains(document.activeElement)) {
                     saveChanges();
                 }

@@ -11,7 +11,7 @@
     background-color: rgba(0, 0, 0, 0.2);
     border-radius: 6px;
     padding: 10px;
-    margin: 5px 0; /* Add a little margin for the toolbars */
+    margin: 5px 0;
     cursor: text !important;
     transition: all 0.2s ease-in-out;
     -webkit-user-select: text;
@@ -26,6 +26,8 @@
     gap: 8px;
     padding: 4px 0;
     width: 100%;
+    /* Stops the browser from jumping when the toolbar disappears */
+    overflow-anchor: none; 
 }
 
 /* Save / Cancel Buttons */
