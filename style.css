@@ -1,56 +1,265 @@
-/* Globally hide the native edit buttons on messages */
-.mes_buttons .edit_mes,
-.mes_buttons [title*="Edit"],
-.mes_buttons [aria-label*="Edit"] {
+/* Seamless Message Edit: formatted inline authoring with a raw-source escape hatch. */
+
+#chat .mes_buttons .mes_edit,
+#chat .mes_button.mes_edit {
     display: none !important;
 }
 
-/* Active editing styling - Mobile friendly padding/sizing */
-.mes_text.inline-editing {
-    outline: 2px dashed rgba(255, 255, 255, 0.5);
-    background-color: rgba(0, 0, 0, 0.2);
-    border-radius: 6px;
-    padding: 10px;
-    margin: 5px 0;
-    cursor: text !important;
-    transition: all 0.2s ease-in-out;
-    -webkit-user-select: text;
-    user-select: text;
-    min-height: 2.5em; 
+.sme-hidden-setting,
+#click_to_edit.sme-hidden-setting,
+label[for="click_to_edit"].sme-hidden-setting {
+    display: none !important;
 }
 
-/* Toolbar Container */
-.inline-edit-toolbar {
+#chat .mes_edit_buttons .mes_edit_done,
+#chat .mes_edit_buttons .mes_edit_cancel {
+    display: none !important;
+}
+
+#chat .mes:not(.sme-editing) .mes_text {
+    cursor: text;
+}
+
+#chat .mes.sme-editing {
+    position: relative;
+    border-radius: 12px;
+    outline: 1px solid color-mix(in srgb, var(--SmartThemeQuoteColor, #8fa7ff) 42%, transparent);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--SmartThemeQuoteColor, #8fa7ff) 8%, transparent);
+    transition: outline-color 160ms ease, box-shadow 160ms ease;
+    overflow-anchor: none;
+}
+
+#chat .mes.sme-editing .mes_text {
+    cursor: auto;
+    overflow-anchor: none;
+}
+
+/* The controls live in an absolute layer on the message card, outside .mes_text.
+   The layer and its children never take up layout space. */
+#chat .mes.sme-editing .sme-controls-layer {
+    position: absolute;
+    inset: 0;
+    z-index: 40;
+    overflow: visible;
+    pointer-events: none;
+}
+
+#chat .sme-edit-toolbar {
+    position: absolute;
+    z-index: 30;
     display: flex;
-    justify-content: flex-end;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
     gap: 8px;
-    padding: 4px 0;
-    width: 100%;
-    /* Stops the browser from jumping when the toolbar disappears */
-    overflow-anchor: none; 
+    width: max-content;
+    max-width: calc(100% - 8px);
+    box-sizing: border-box;
+    padding: 6px 8px;
+    margin: 0;
+    border: 1px solid color-mix(in srgb, var(--SmartThemeBorderColor, #777) 42%, transparent);
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--SmartThemeBlurTintColor, #20232c) 96%, transparent);
+    box-shadow: 0 4px 14px color-mix(in srgb, #000 22%, transparent);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    color: var(--SmartThemeBodyColor, inherit);
+    font-size: 0.84rem;
+    line-height: 1.2;
+    pointer-events: none;
 }
 
-/* Save / Cancel Buttons */
-.inline-edit-btn {
+#chat .sme-edit-toolbar-top {
+    top: calc(var(--sme-toolbar-top, 0px) + 4px);
+    right: 4px;
+}
+
+#chat .sme-edit-toolbar-bottom {
+    bottom: calc(var(--sme-toolbar-bottom, 0px) + 4px);
+    left: 4px;
+}
+
+#chat .sme-edit-toolbar .sme-edit-actions,
+#chat .sme-edit-toolbar .sme-action {
+    pointer-events: auto;
+}
+
+#chat .sme-editing-label,
+#chat .sme-editing-hint {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    opacity: 0.78;
+    user-select: none;
+}
+
+#chat .sme-editing-dot {
+    display: inline-block;
+    flex: 0 0 7px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--SmartThemeQuoteColor, #8fa7ff);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--SmartThemeQuoteColor, #8fa7ff) 17%, transparent);
+}
+
+#chat .sme-edit-actions {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 7px;
+    margin-left: auto;
+}
+
+#chat .sme-action {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 6px 12px;
-    background-color: var(--SmartThemeBlurTintColor, rgba(0, 0, 0, 0.6));
-    border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.3));
-    border-radius: 5px;
+    gap: 7px;
+    min-height: 34px;
+    padding: 7px 12px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    font: inherit;
+    font-weight: 600;
+    line-height: 1;
     cursor: pointer;
-    font-size: 0.85em;
-    font-family: inherit;
-    color: var(--SmartThemeBodyColor, #fff);
-    transition: background-color 0.15s ease;
+    transition: transform 140ms ease, filter 140ms ease, background-color 140ms ease, border-color 140ms ease;
 }
 
-.inline-edit-btn:hover {
-    background-color: var(--SmartThemeQuoteColor, rgba(255, 255, 255, 0.2));
+#chat .sme-action:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.08);
 }
 
-.inline-edit-btn i {
-    margin-right: 5px;
-    font-style: normal;
+#chat .sme-action:active {
+    transform: translateY(0);
+}
+
+#chat .sme-action:focus-visible {
+    outline: 2px solid var(--SmartThemeQuoteColor, #8fa7ff);
+    outline-offset: 2px;
+}
+
+#chat .sme-action-save {
+    color: var(--SmartThemeEmColor, #fff);
+    background: color-mix(in srgb, var(--SmartThemeQuoteColor, #7188d9) 80%, #242936);
+    border-color: color-mix(in srgb, var(--SmartThemeQuoteColor, #7188d9) 60%, transparent);
+}
+
+#chat .sme-action-cancel,
+#chat .sme-action-source {
+    color: var(--SmartThemeBodyColor, inherit);
+    background: color-mix(in srgb, var(--SmartThemeBlurTintColor, #20232c) 72%, transparent);
+    border-color: color-mix(in srgb, var(--SmartThemeBorderColor, #888) 45%, transparent);
+}
+
+#chat .sme-action-icon {
+    font-size: 1.02rem;
+    line-height: 0.9;
+}
+
+/* The formatted surface is the default editor. It reuses SillyTavern's rendered HTML,
+   so blockquotes, colors, Markdown, code blocks and theme styling stay visible. */
+#chat .sme-wysiwyg-view {
+    display: block;
+    width: 100%;
+    min-height: 0;
+    box-sizing: border-box;
+    padding: 8px 3px;
+    margin: 0;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    outline: none;
+    color: var(--SmartThemeBodyColor, inherit);
+    overflow-wrap: anywhere;
+    caret-color: var(--SmartThemeQuoteColor, currentColor);
+    cursor: text;
+    overflow: auto;
+    scrollbar-gutter: stable;
+    transition: background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+}
+
+#chat .sme-wysiwyg-view:focus {
+    border-color: color-mix(in srgb, var(--SmartThemeQuoteColor, #8fa7ff) 34%, transparent);
+    background: color-mix(in srgb, var(--SmartThemeBlurTintColor, #1e2028) 18%, transparent);
+}
+
+#chat .sme-wysiwyg-view.sme-view-hidden,
+#chat .edit_textarea.sme-source-hidden {
+    display: none !important;
+}
+
+#chat .mes_text > .edit_textarea:not(.sme-source-hidden) {
+    display: block;
+    width: 100%;
+    min-height: 160px;
+    box-sizing: border-box;
+    padding: 14px 15px;
+    margin: 0;
+    border: 1px solid color-mix(in srgb, var(--SmartThemeQuoteColor, #8fa7ff) 42%, var(--SmartThemeBorderColor, #777));
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--SmartThemeBlurTintColor, #1e2028) 92%, transparent);
+    color: var(--SmartThemeBodyColor, inherit);
+    font-family: var(--monoFontFamily, monospace);
+    font-size: 0.94em;
+    line-height: 1.55;
+    resize: vertical;
+}
+
+#chat .mes_text > .edit_textarea:focus {
+    outline: none;
+    border-color: var(--SmartThemeQuoteColor, #8fa7ff);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--SmartThemeQuoteColor, #8fa7ff) 14%, transparent);
+}
+
+#chat .sme-wysiwyg-view blockquote {
+    border-left: 3px solid var(--SmartThemeQuoteColor, #8fa7ff);
+    padding-left: 0.9em;
+    margin-left: 0;
+    color: var(--SmartThemeQuoteColor, inherit);
+}
+
+#chat .sme-wysiwyg-view pre {
+    max-width: 100%;
+    overflow-x: auto;
+}
+
+#chat .sme-wysiwyg-view img {
+    max-width: 100%;
+}
+
+#chat .sme-wysiwyg-view a {
+    cursor: text;
+    pointer-events: none;
+}
+
+@media (max-width: 600px) {
+    #chat .sme-edit-toolbar {
+        gap: 4px;
+        padding: 5px;
+        max-width: calc(100% - 8px);
+    }
+
+    #chat .sme-editing-label,
+    #chat .sme-editing-hint {
+        display: none;
+    }
+
+    #chat .sme-action {
+        min-height: 32px;
+        padding: 6px 8px;
+        gap: 4px;
+        font-size: 0.8rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #chat .mes.sme-editing,
+    #chat .sme-action,
+    #chat .sme-wysiwyg-view {
+        transition: none !important;
+    }
 }
