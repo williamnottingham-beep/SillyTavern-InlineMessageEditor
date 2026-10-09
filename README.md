@@ -2,7 +2,7 @@
 
 A SillyTavern UI extension that provides formatted in-place editing while preserving SillyTavern's native message-edit/save pipeline.
 
-Version: **1.1.3**
+Version: **1.1.4**
 
 ## Features
 
@@ -13,10 +13,10 @@ Version: **1.1.3**
 - The top and bottom control bars live in a detached absolute-positioned overlay on the message card, outside the message-text flow. They do not add layout height or shift the surrounding chat.
 - `Ctrl+Enter` / `Cmd+Enter` saves. `Escape` cancels.
 - Hides the stock edit icon and the Click to edit setting.
-- Ignores SillyTavern reasoning/thinking details when detecting message-body clicks, preserving the collapsible “Thought for…” block and its native controls.
+- Click-to-edit activates only within the actual `.mes_text` message body. Reasoning/thinking cards, details/summary elements, metadata, avatars, controls, and message-card padding never launch editing.
 - Native SillyTavern save handling is retained for Regex processing, swipe synchronization, message events, and chat persistence.
-- Locks the formatted and source editing surfaces to the message body height measured before editing, with internal scrolling if the content changes. This prevents the active message from expanding while typing.
-- Restores the exact pre-edit document and chat scroll positions without applying a compensating layout delta, avoiding subtle click-time chat nudges.
+- Keeps the formatted editor in normal document flow and inherits the current theme’s font, alignment, line height, and message formatting, avoiding fixed-height clipping or layout distortions.
+- Restores chat and document scroll positions immediately and after the first layout frame, preventing native focus or smooth-scroll styles from nudging the chat when editing starts.
 
 ## Install manually
 

@@ -12,11 +12,25 @@
         '.mes_reasoning_actions', '.mes_reasoning_summary', '.mes_reasoning_edit',
         '.mes_reasoning_edit_done', '.mes_reasoning_edit_cancel', '.mes_reasoning_copy',
         '.mes_reasoning_delete', '.mes_edit_add_reasoning', '.reasoning_edit_textarea',
-        '.mes_reasoning_edit_buttons', '.mes_img', '.mes_img_container',
+        '.mes_reasoning_edit_buttons', '.mes_reasoning_content', '.mes_reasoning_body',
+        '.mes_reasoning_text', '.mes_thoughts', '.mes_img', '.mes_img_container',
         '.mes_img_overlay', '.mesIDDisplay', '.mesIDDisplay_enabled',
         '.avatar', '.ch_name', 'video', 'audio', 'iframe',
         '.sme-edit-toolbar', '.extraMesButtons', '.extraMesButtonsHint',
     ].join(',');
+
+    // Reasoning UI has changed markup across SillyTavern releases and themes.
+    // Inspect every ancestor up to the message card, rather than depending on one class.
+    function isReasoningArea(target, messageElement) {
+        let node = target instanceof Element ? target : null;
+        while (node && node !== messageElement) {
+            if (node.matches('details, summary, [data-reasoning], [data-thought], [class*="reasoning" i], [class*="thought" i], [class*="chain-of-thought" i]')) {
+                return true;
+            }
+            node = node.parentElement;
+        }
+        return false;
+    }
 
     let context;
     let chatObserver;
@@ -41,18 +55,6 @@
     function getRawMessage(messageElement) {
         const index = getMessageIndex(messageElement);
         return index >= 0 ? String(context?.chat?.[index]?.mes ?? '') : '';
-    }
-
-    function measureEditableHeight(element) {
-        if (!element) return null;
-        const rect = element.getBoundingClientRect();
-        const style = getComputedStyle(element);
-        const verticalExtras = [
-            style.paddingTop, style.paddingBottom,
-            style.borderTopWidth, style.borderBottomWidth,
-        ].reduce((sum, value) => sum + (Number.parseFloat(value) || 0), 0);
-        const height = Math.round(rect.height - verticalExtras);
-        return Number.isFinite(height) && height > 0 ? height : null;
     }
 
     function ensureControlsLayer(messageElement) {
@@ -255,7 +257,6 @@
                 viewDirty: false,
                 sourceMode: false,
                 initializedView: false,
-                fixedViewHeight: measureEditableHeight(messageText),
             };
             sessions.set(messageElement, session);
         }
@@ -283,30 +284,21 @@
             view.addEventListener('input', () => {
                 session.viewDirty = true;
                 view.classList.add('sme-has-changes');
+                requestAnimationFrame(() => positionToolbarLayer(messageElement, messageText));
             });
             view.addEventListener('keydown', onEditorKeydown);
         }
 
-        // Lock the editing surface to the message body's pre-edit height. Overflow is
-        // handled inside the surface until Save/Cancel, so typing and toolbars do not
-        // continuously push neighbouring messages around.
-        if (!Number.isFinite(session.fixedViewHeight) || session.fixedViewHeight <= 0) {
-            session.fixedViewHeight = measureEditableHeight(messageText);
-        }
-        if (Number.isFinite(session.fixedViewHeight) && session.fixedViewHeight > 0) {
-            const fixedHeight = `${session.fixedViewHeight}px`;
-            view.style.height = fixedHeight;
-            view.style.minHeight = '0px';
-            view.style.maxHeight = fixedHeight;
-            view.style.overflowY = 'auto';
-            view.style.boxSizing = 'border-box';
-            editor.style.height = fixedHeight;
-            editor.style.minHeight = '0px';
-            editor.style.maxHeight = fixedHeight;
-            editor.style.resize = 'none';
-            editor.style.overflowY = 'auto';
-            editor.style.boxSizing = 'border-box';
-        }
+        // Keep the editing surface in normal document flow. Fixed heights and internal
+        // scrolling made messages clip or misalign with custom SillyTavern themes.
+        view.style.removeProperty('height');
+        view.style.removeProperty('min-height');
+        view.style.removeProperty('max-height');
+        view.style.removeProperty('overflow-y');
+        editor.style.removeProperty('height');
+        editor.style.removeProperty('max-height');
+        editor.style.removeProperty('resize');
+        editor.style.removeProperty('overflow-y');
 
         editor.classList.toggle('sme-source-hidden', !session.sourceMode);
         view.classList.toggle('sme-view-hidden', session.sourceMode);
@@ -431,11 +423,16 @@
         selection?.addRange(range);
     }
 
-    function getScrollSnapshot(messageElement) {
+    function getScrollSnapshot() {
         const chat = document.querySelector(CHAT_SELECTOR);
+        const root = document.scrollingElement || document.documentElement;
         return {
             chat,
             chatScrollTop: chat?.scrollTop ?? 0,
+            chatScrollLeft: chat?.scrollLeft ?? 0,
+            root,
+            rootScrollTop: root?.scrollTop ?? window.scrollY,
+            rootScrollLeft: root?.scrollLeft ?? window.scrollX,
             windowX: window.scrollX,
             windowY: window.scrollY,
         };
@@ -443,10 +440,45 @@
 
     function restoreScroll(snapshot) {
         if (!snapshot) return;
-        // Restore the exact pre-edit scroll positions. Do not compensate with a layout
-        // delta: that correction itself causes the subtle chat nudge this extension avoids.
+        const targets = [document.documentElement, document.body, snapshot.chat].filter(Boolean);
+        const oldBehaviors = targets.map(element => element.style.scrollBehavior);
+        targets.forEach(element => { element.style.scrollBehavior = 'auto'; });
+
+        // Assign scroll positions directly. window.scrollTo can animate on themes that
+        // apply scroll-behavior:smooth, which looks like the chat jumps after a click.
+        if (snapshot.root) {
+            snapshot.root.scrollLeft = snapshot.rootScrollLeft;
+            snapshot.root.scrollTop = snapshot.rootScrollTop;
+        }
+        if (snapshot.chat) {
+            snapshot.chat.scrollLeft = snapshot.chatScrollLeft;
+            snapshot.chat.scrollTop = snapshot.chatScrollTop;
+        }
+        document.documentElement.scrollLeft = snapshot.windowX;
+        document.documentElement.scrollTop = snapshot.windowY;
+        if (document.body) {
+            document.body.scrollLeft = snapshot.windowX;
+            document.body.scrollTop = snapshot.windowY;
+        }
         window.scrollTo(snapshot.windowX, snapshot.windowY);
-        if (snapshot.chat) snapshot.chat.scrollTop = snapshot.chatScrollTop;
+
+        requestAnimationFrame(() => {
+            if (snapshot.root) {
+                snapshot.root.scrollLeft = snapshot.rootScrollLeft;
+                snapshot.root.scrollTop = snapshot.rootScrollTop;
+            }
+            if (snapshot.chat) {
+                snapshot.chat.scrollLeft = snapshot.chatScrollLeft;
+                snapshot.chat.scrollTop = snapshot.chatScrollTop;
+            }
+            document.documentElement.scrollLeft = snapshot.windowX;
+            document.documentElement.scrollTop = snapshot.windowY;
+            if (document.body) {
+                document.body.scrollLeft = snapshot.windowX;
+                document.body.scrollTop = snapshot.windowY;
+            }
+            targets.forEach((element, index) => { element.style.scrollBehavior = oldBehaviors[index]; });
+        });
     }
 
     function waitForEditor(messageElement, timeoutMs = 2500) {
@@ -477,14 +509,13 @@
         if (!editButton) return;
 
         const messageText = messageElement.querySelector('.mes_text');
-        const snapshot = getScrollSnapshot(messageElement);
+        const snapshot = getScrollSnapshot();
         const session = {
             initialHtml: messageText?.innerHTML ?? '',
             clickTextOffset: textOffsetFromClick(messageElement, event),
             viewDirty: false,
             sourceMode: false,
             initializedView: false,
-            fixedViewHeight: measureEditableHeight(messageText),
         };
         sessions.set(messageElement, session);
 
@@ -497,10 +528,12 @@
         requestAnimationFrame(() => {
             const view = messageElement.querySelector('.sme-wysiwyg-view');
             if (!view?.isConnected) return;
-            restoreScroll(snapshot);
             view.focus({ preventScroll: true });
             setCaretAtTextOffset(view, session.clickTextOffset);
             restoreScroll(snapshot);
+            // Core edit handlers and third-party themes may adjust scrolling one frame
+            // after the textarea is inserted. Reapply once after that layout settles.
+            requestAnimationFrame(() => restoreScroll(snapshot));
         });
     }
 
@@ -509,11 +542,14 @@
         const messageElement = event.target.closest('.mes');
         if (!messageElement || !messageElement.closest(CHAT_SELECTOR)) return;
         if (messageElement.querySelector(EDITOR_SELECTOR)) return;
-        // Reasoning/thinking blocks are separate message metadata in SillyTavern.
-        // They must never start the main message editor: doing so can save the visible
-        // body back over the reasoning UI and cause the thinking pill to disappear.
+
+        // A message card also contains reasoning, metadata, avatars, controls, and padding.
+        // Only clicks whose target is genuinely inside the rendered body may start editing.
+        // This intentionally excludes the whole "Thought for ..." block and its margins.
+        if (isReasoningArea(event.target, messageElement)) return;
         if (event.target.closest(INTERACTIVE_SELECTOR)) return;
-        if (!event.target.closest('.mes_text, .mes_block')) return;
+        if (!event.target.closest('.mes_text')) return;
+
         const selection = window.getSelection?.();
         if (selection && !selection.isCollapsed) return;
         void beginEditAtClick(messageElement, event);

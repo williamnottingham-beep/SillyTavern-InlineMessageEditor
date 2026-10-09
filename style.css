@@ -168,23 +168,26 @@ label[for="click_to_edit"].sme-hidden-setting {
     width: 100%;
     min-height: 0;
     box-sizing: border-box;
-    padding: 8px 3px;
+    padding: 0;
     margin: 0;
-    border: 1px solid transparent;
-    border-radius: 8px;
+    border: 0;
+    border-radius: 0;
     outline: none;
-    color: var(--SmartThemeBodyColor, inherit);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    line-height: inherit;
+    letter-spacing: inherit;
+    text-align: inherit;
     overflow-wrap: anywhere;
     caret-color: var(--SmartThemeQuoteColor, currentColor);
     cursor: text;
-    overflow: auto;
-    scrollbar-gutter: stable;
-    transition: background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+    overflow: visible;
+    transition: box-shadow 140ms ease;
 }
 
 #chat .sme-wysiwyg-view:focus {
-    border-color: color-mix(in srgb, var(--SmartThemeQuoteColor, #8fa7ff) 34%, transparent);
-    background: color-mix(in srgb, var(--SmartThemeBlurTintColor, #1e2028) 18%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--SmartThemeQuoteColor, #8fa7ff) 28%, transparent);
 }
 
 #chat .sme-wysiwyg-view.sme-view-hidden,
@@ -195,9 +198,9 @@ label[for="click_to_edit"].sme-hidden-setting {
 #chat .mes_text > .edit_textarea:not(.sme-source-hidden) {
     display: block;
     width: 100%;
-    min-height: 160px;
+    min-height: 10em;
     box-sizing: border-box;
-    padding: 14px 15px;
+    padding: 8px 10px;
     margin: 0;
     border: 1px solid color-mix(in srgb, var(--SmartThemeQuoteColor, #8fa7ff) 42%, var(--SmartThemeBorderColor, #777));
     border-radius: 10px;
@@ -213,27 +216,6 @@ label[for="click_to_edit"].sme-hidden-setting {
     outline: none;
     border-color: var(--SmartThemeQuoteColor, #8fa7ff);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--SmartThemeQuoteColor, #8fa7ff) 14%, transparent);
-}
-
-#chat .sme-wysiwyg-view blockquote {
-    border-left: 3px solid var(--SmartThemeQuoteColor, #8fa7ff);
-    padding-left: 0.9em;
-    margin-left: 0;
-    color: var(--SmartThemeQuoteColor, inherit);
-}
-
-#chat .sme-wysiwyg-view pre {
-    max-width: 100%;
-    overflow-x: auto;
-}
-
-#chat .sme-wysiwyg-view img {
-    max-width: 100%;
-}
-
-#chat .sme-wysiwyg-view a {
-    cursor: text;
-    pointer-events: none;
 }
 
 @media (max-width: 600px) {
